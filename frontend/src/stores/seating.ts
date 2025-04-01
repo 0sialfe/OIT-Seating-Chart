@@ -8,10 +8,16 @@ export const useSeatingStore = defineStore('seating', () => {
   const isEditMode = ref(false);
   const selectedSeat = ref<Seat | null>(null);
   const isAddingSeat = ref(false);
+  const gridSize = ref(20); // 设置网格大小为20像素
   const stageConfig = ref({
     width: window.innerWidth - 40,
     height: window.innerHeight - 120
   });
+
+  // 吸附到网格函数
+  const snapToGrid = (value: number): number => {
+    return Math.round(value / gridSize.value) * gridSize.value;
+  };
 
   const toggleEditMode = () => {
     isEditMode.value = !isEditMode.value;
@@ -34,8 +40,11 @@ export const useSeatingStore = defineStore('seating', () => {
       return;
     }
     console.log('添加座位:', seat);
+    // 吸附座位位置到网格
     const newSeat = {
       ...seat,
+      x: snapToGrid(seat.x),
+      y: snapToGrid(seat.y),
       id: Date.now().toString()
     };
     seats.value.push(newSeat);
@@ -81,11 +90,15 @@ export const useSeatingStore = defineStore('seating', () => {
       console.log('当前不在编辑模式，无法更新座位位置');
       return;
     }
-    console.log('更新座位位置:', id, x, y);
+    // 吸附到网格
+    const snapX = snapToGrid(x);
+    const snapY = snapToGrid(y);
+    
+    console.log('更新座位位置:', id, x, y, '吸附到:', snapX, snapY);
     const seat = seats.value.find(s => s.id === id);
     if (seat) {
-      seat.x = x;
-      seat.y = y;
+      seat.x = snapX;
+      seat.y = snapY;
       console.log('座位位置已更新:', seat);
     }
   };
@@ -125,7 +138,9 @@ export const useSeatingStore = defineStore('seating', () => {
     isEditMode,
     selectedSeat,
     isAddingSeat,
+    gridSize,
     stageConfig,
+    snapToGrid,
     toggleEditMode,
     setAddingSeat,
     addSeat,

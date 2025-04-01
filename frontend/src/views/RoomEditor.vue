@@ -27,12 +27,19 @@
       <el-main>
         <v-stage 
           ref="stageRef" 
-          :config="store.stageConfig" 
+          :config="store.stageConfig"
+          :class="{'is-edit-mode': store.isEditMode, 'is-adding-seat': store.isAddingSeat}"
           @click="handleStageClick"
           @mousemove="handleMouseMove"
           @touchstart="handleStageClick"
         >
           <v-layer>
+            <!-- 网格背景 -->
+            <v-rect
+              v-if="store.isEditMode"
+              :config="gridConfig"
+            />
+            
             <v-rect
               v-for="seat in store.seats"
               :key="seat.id"
@@ -50,12 +57,40 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useSeatingStore } from '../stores/seating';
 
 const store = useSeatingStore();
 const stageRef = ref(null);
+
+// 网格配置
+const gridConfig = computed(() => ({
+  width: store.stageConfig.width,
+  height: store.stageConfig.height,
+  stroke: '#ddd',
+  strokeWidth: 1,
+  listening: false,
+  fillPatternImage: createGridPattern(store.gridSize)
+}));
+
+// 创建网格图案
+function createGridPattern(size: number) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.strokeStyle = '#ddd';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, size);
+    ctx.lineTo(size, size);
+    ctx.stroke();
+  }
+  return canvas;
+}
 
 const toggleEditMode = () => {
   store.toggleEditMode();
@@ -162,8 +197,8 @@ const saveLayout = async () => {
   try {
     await store.saveLayout();
     ElMessage.success('布局保存成功');
-  } catch (error) {
-    ElMessage.error('保存失败：' + error.message);
+  } catch (error: any) {
+    ElMessage.error('保存失败：' + (error.message || '未知错误'));
   }
 };
 
@@ -172,9 +207,9 @@ onMounted(async () => {
     // 加载初始布局
     await store.loadLayout();
     console.log('布局加载完成');
-  } catch (error) {
+  } catch (error: any) {
     console.error('初始化失败:', error);
-    ElMessage.error('加载布局失败');
+    ElMessage.error('加载布局失败：' + (error.message || '未知错误'));
   }
 });
 </script>
