@@ -7,6 +7,7 @@ export const useSeatingStore = defineStore('seating', () => {
   const seats = ref<Seat[]>([]);
   const isEditMode = ref(false);
   const selectedSeat = ref<Seat | null>(null);
+  const isAddingSeat = ref(false);
   const stageConfig = ref({
     width: window.innerWidth - 40,
     height: window.innerHeight - 120
@@ -17,8 +18,14 @@ export const useSeatingStore = defineStore('seating', () => {
     console.log('切换编辑模式:', isEditMode.value);
     if (!isEditMode.value) {
       selectedSeat.value = null;
-      console.log('清除选中的座位');
+      isAddingSeat.value = false;
+      console.log('清除选中的座位和添加状态');
     }
+  };
+
+  const setAddingSeat = (value: boolean) => {
+    isAddingSeat.value = value;
+    console.log('设置添加座位状态:', value);
   };
 
   const addSeat = (seat: Omit<Seat, 'id'>) => {
@@ -117,8 +124,10 @@ export const useSeatingStore = defineStore('seating', () => {
     seats,
     isEditMode,
     selectedSeat,
+    isAddingSeat,
     stageConfig,
     toggleEditMode,
+    setAddingSeat,
     addSeat,
     deleteSeat,
     setSelectedSeat,

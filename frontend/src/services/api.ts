@@ -10,11 +10,19 @@ const api = axios.create({
 
 export const roomApi = {
   async saveRoom(room: Room): Promise<Room> {
+    if (room.id === 'layout') {
+      const { data } = await api.post<Room>('/rooms/layout', room);
+      return data;
+    }
     const { data } = await api.post<Room>('/rooms', room);
     return data;
   },
 
   async getRoom(id: string): Promise<Room> {
+    if (id === 'layout') {
+      const { data } = await api.get<Room>('/rooms/layout');
+      return data;
+    }
     const { data } = await api.get<Room>(`/rooms/${id}`);
     return data;
   },

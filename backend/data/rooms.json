@@ -2,8 +2,53 @@
   {
     "id": "layout",
     "name": "默认布局",
-    "seats": [],
-    "createdAt": "2025-04-01T08:24:09.253Z",
-    "updatedAt": "2025-04-01T08:24:09.253Z"
+    "seats": [
+      {
+        "x": 212,
+        "y": 106,
+        "width": 60,
+        "height": 60,
+        "fill": "#4CAF50",
+        "stroke": "#2E7D32",
+        "strokeWidth": 2,
+        "draggable": true,
+        "id": "1743498523371"
+      },
+      {
+        "x": 334,
+        "y": 99,
+        "width": 60,
+        "height": 60,
+        "fill": "#4CAF50",
+        "stroke": "#2E7D32",
+        "strokeWidth": 2,
+        "draggable": true,
+        "id": "1743498526033"
+      },
+      {
+        "x": 431,
+        "y": 92,
+        "width": 60,
+        "height": 60,
+        "fill": "#4CAF50",
+        "stroke": "#2E7D32",
+        "strokeWidth": 2,
+        "draggable": true,
+        "id": "1743498527555"
+      },
+      {
+        "x": 540,
+        "y": 80,
+        "width": 60,
+        "height": 60,
+        "fill": "#4CAF50",
+        "stroke": "#2E7D32",
+        "strokeWidth": 2,
+        "draggable": true,
+        "id": "1743498529280"
+      }
+    ],
+    "createdAt": "2025-04-01T09:08:50.081Z",
+    "updatedAt": "2025-04-01T09:08:50.107Z"
   }
 ]

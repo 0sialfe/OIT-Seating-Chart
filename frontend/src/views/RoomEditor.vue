@@ -68,16 +68,7 @@ const addSeat = () => {
     return;
   }
   console.log('添加座位');
-  store.addSeat({
-    x: 100,
-    y: 100,
-    width: 60,
-    height: 60,
-    fill: '#4CAF50',
-    stroke: '#2E7D32',
-    strokeWidth: 2,
-    draggable: true
-  });
+  store.setAddingSeat(true);
 };
 
 const deleteSelectedSeat = () => {
@@ -102,7 +93,23 @@ const handleStageClick = (e: any) => {
   }
   console.log('点击画布');
   if (store.isEditMode) {
-    store.setSelectedSeat(null);
+    if (store.isAddingSeat) {
+      // 获取点击位置
+      const pos = e.currentTarget.getPointerPosition();
+      store.addSeat({
+        x: pos.x - 30, // 居中显示
+        y: pos.y - 30,
+        width: 60,
+        height: 60,
+        fill: '#4CAF50',
+        stroke: '#2E7D32',
+        strokeWidth: 2,
+        draggable: true
+      });
+      store.setAddingSeat(false);
+    } else {
+      store.setSelectedSeat(null);
+    }
   }
 };
 
@@ -217,6 +224,11 @@ h1 {
 :deep(.v-stage.is-edit-mode) {
   cursor: crosshair;
   background-color: #f0f9ff;
+}
+
+:deep(.v-stage.is-adding-seat) {
+  cursor: pointer;
+  background-color: #f0fff0;
 }
 
 :deep(.v-rect) {
