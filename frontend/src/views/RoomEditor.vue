@@ -1,272 +1,302 @@
 <template>
   <div class="room-editor">
-    <el-container>
-      <el-header>
-        <h1>座位表编辑器</h1>
-        <div class="toolbar">
-          <el-button-group>
-            <el-button type="primary" @click="toggleEditMode">
-              {{ store.isEditMode ? '退出编辑' : '编辑模式' }}
-            </el-button>
-            <el-button type="success" @click="addSeat" :disabled="!store.isEditMode">
-              添加座位
-            </el-button>
-            <el-button 
-              type="danger" 
-              @click="deleteSelectedSeat" 
-              :disabled="!store.isEditMode || !store.selectedSeat?.id"
-            >
-              删除座位
-            </el-button>
-          </el-button-group>
-          <el-button type="primary" @click="saveLayout" class="save-button">
-            保存布局
-          </el-button>
-        </div>
-      </el-header>
-      <el-main>
-        <v-stage 
-          ref="stageRef" 
-          :config="store.stageConfig"
-          :class="{'is-edit-mode': store.isEditMode, 'is-adding-seat': store.isAddingSeat}"
-          @click="handleStageClick"
-          @mousemove="handleMouseMove"
-          @touchstart="handleStageClick"
+    <div class="controls">
+      <button @click="toggleEditMode" :class="{ active: store.isEditMode }">
+        {{ store.isEditMode ? '退出编辑' : '编辑模式' }}
+      </button>
+      <button v-if="store.isEditMode" @click="toggleAddingSeat" :class="{ active: isAddingSeat }">
+        添加座位
+      </button>
+      <button v-if="store.isEditMode" @click="toggleAddingEmployee" :class="{ active: isAddingEmployee }">
+        添加员工
+      </button>
+      <button v-if="store.isEditMode" @click="saveLayout">保存布局</button>
+    </div>
+    
+    <div v-if="store.isEditMode && isAddingEmployee && noAvailableSlots" class="message">
+      没有空余的座位
+    </div>
+    
+    <div v-if="store.isEditMode && isAddingSeat && lastAddFailed" class="message">
+      座位重叠，无法添加
+    </div>
+    
+    <div 
+      class="canvas-container" 
+      :class="{ 'adding-seat': isAddingSeat, 'adding-employee': isAddingEmployee }"
+      @click="handleCanvasClick"
+    >
+      <div class="grid-background" :style="gridStyle"></div>
+      <div class="seats-layer">
+        <div
+          v-for="seat in slotSeats"
+          :key="seat.id"
+          class="seat"
+          :class="{ 'is-slot': seat.type === 'slot' }"
+          :style="{
+            left: `${seat.x}px`,
+            top: `${seat.y}px`,
+            width: `${seat.width}px`,
+            height: `${seat.height}px`
+          }"
+          @click.stop="selectSeat(seat)"
         >
-          <v-layer>
-            <!-- 网格背景 -->
-            <v-rect
-              v-if="store.isEditMode"
-              :config="gridConfig"
-            />
-            
-            <v-rect
-              v-for="seat in store.seats"
-              :key="seat.id"
-              :config="seat"
-              @click="handleSeatClick"
-              @touchstart="handleSeatClick"
-              @dragend="handleSeatDragEnd"
-              :draggable="store.isEditMode"
-            />
-          </v-layer>
-        </v-stage>
-      </el-main>
-    </el-container>
+          <div class="seat-label">{{ seat.label }}</div>
+          <button 
+            v-if="store.isEditMode" 
+            class="delete-btn" 
+            @click.stop="deleteSeat(seat.id)"
+          >×</button>
+        </div>
+      </div>
+      <div class="employees-layer">
+        <div
+          v-for="seat in employeeSeats"
+          :key="seat.id"
+          class="seat"
+          :class="{ 'is-employee': seat.type === 'employee' }"
+          :style="{
+            left: `${seat.x}px`,
+            top: `${seat.y}px`,
+            width: `${seat.width}px`,
+            height: `${seat.height}px`
+          }"
+          @click.stop="selectSeat(seat)"
+        >
+          <div class="seat-label">{{ seat.label }}</div>
+          <button 
+            v-if="store.isEditMode" 
+            class="delete-btn" 
+            @click.stop="deleteSeat(seat.id)"
+          >×</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
-import { ElMessage } from 'element-plus';
-import { useSeatingStore } from '../stores/seating';
+import { ref, computed, onMounted } from 'vue'
+import { useSeatingStore } from '@/stores/seating'
+import type { Seat } from '@/stores/seating'
 
-const store = useSeatingStore();
-const stageRef = ref(null);
+const store = useSeatingStore()
+const isAddingSeat = ref(false)
+const isAddingEmployee = ref(false)
+const lastAddFailed = ref(false)
 
-// 网格配置
-const gridConfig = computed(() => ({
-  width: store.stageConfig.width,
-  height: store.stageConfig.height,
-  stroke: '#ddd',
-  strokeWidth: 1,
-  listening: false,
-  fillPatternImage: createGridPattern(store.gridSize)
-}));
+const gridSize = computed(() => store.gridSize)
 
-// 创建网格图案
-function createGridPattern(size: number) {
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    ctx.strokeStyle = '#ddd';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, size);
-    ctx.lineTo(size, size);
-    ctx.stroke();
+const gridStyle = computed(() => {
+  const size = gridSize.value
+  return {
+    backgroundSize: `${size}px ${size}px`,
+    backgroundImage: `linear-gradient(to right, #eee 1px, transparent 1px),
+                      linear-gradient(to bottom, #eee 1px, transparent 1px)`
   }
-  return canvas;
+})
+
+const slotSeats = computed(() => store.seats.filter(seat => seat.type === 'slot'))
+const employeeSeats = computed(() => store.seats.filter(seat => seat.type === 'employee'))
+
+const noAvailableSlots = computed(() => {
+  const slots = store.seats.filter(seat => seat.type === 'slot');
+  const employees = store.seats.filter(seat => seat.type === 'employee');
+  return employees.length >= slots.length;
+});
+
+const handleCanvasClick = (event: MouseEvent) => {
+  if (!store.isEditMode) return
+  
+  const canvas = event.currentTarget as HTMLElement
+  const rect = canvas.getBoundingClientRect()
+  const x = event.clientX - rect.left
+  const y = event.clientY - rect.top
+  
+  if (isAddingSeat.value) {
+    const oldLength = store.seats.length
+    store.addSeat(x, y, 'slot')
+    lastAddFailed.value = store.seats.length === oldLength
+  } else if (isAddingEmployee.value) {
+    store.addEmployee(x, y)
+  }
+}
+
+const toggleAddingSeat = () => {
+  isAddingSeat.value = !isAddingSeat.value
+  if (isAddingSeat.value) {
+    isAddingEmployee.value = false
+  }
+}
+
+const toggleAddingEmployee = () => {
+  isAddingEmployee.value = !isAddingEmployee.value
+  if (isAddingEmployee.value) {
+    isAddingSeat.value = false
+  }
 }
 
 const toggleEditMode = () => {
-  store.toggleEditMode();
-  console.log('编辑模式:', store.isEditMode);
-};
-
-const addSeat = () => {
+  store.toggleEditMode()
   if (!store.isEditMode) {
-    ElMessage.warning('请先进入编辑模式');
-    return;
+    isAddingSeat.value = false
+    isAddingEmployee.value = false
   }
-  console.log('添加座位');
-  store.setAddingSeat(true);
-};
+}
 
-const deleteSelectedSeat = () => {
-  if (!store.isEditMode) {
-    ElMessage.warning('请先进入编辑模式');
-    return;
-  }
-  if (store.selectedSeat?.id) {
-    const seatId = store.selectedSeat.id;
-    console.log('删除座位:', seatId);
-    console.log('当前选中的座位:', store.selectedSeat);
-    store.deleteSeat(seatId);
-    ElMessage.success('座位已删除');
-  } else {
-    ElMessage.warning('请先选择一个座位');
-  }
-};
-
-const handleStageClick = (e: any) => {
-  if (e.target !== e.currentTarget) {
-    return;
-  }
-  console.log('点击画布');
+const selectSeat = (seat: Seat) => {
   if (store.isEditMode) {
-    if (store.isAddingSeat) {
-      // 获取点击位置
-      const pos = e.currentTarget.getPointerPosition();
-      store.addSeat({
-        x: pos.x - 30, // 居中显示
-        y: pos.y - 30,
-        width: 60,
-        height: 60,
-        fill: '#4CAF50',
-        stroke: '#2E7D32',
-        strokeWidth: 2,
-        draggable: true
-      });
-      store.setAddingSeat(false);
-    } else {
-      store.setSelectedSeat(null);
-    }
+    store.setSelectedSeat(seat)
   }
-};
+}
 
-const handleSeatClick = (e: any) => {
-  e.cancelBubble = true;
-  console.log('点击座位');
-  if (store.isEditMode) {
-    const seat = e.target;
-    const seatId = seat.id();
-    console.log('选中的座位ID:', seatId);
-    console.log('选中的座位属性:', {
-      id: seatId,
-      x: seat.x(),
-      y: seat.y(),
-      width: seat.width(),
-      height: seat.height(),
-      fill: seat.fill(),
-      stroke: seat.stroke(),
-      strokeWidth: seat.strokeWidth(),
-      draggable: seat.draggable()
-    });
-    store.setSelectedSeat({
-      id: seatId,
-      x: seat.x(),
-      y: seat.y(),
-      width: seat.width(),
-      height: seat.height(),
-      fill: seat.fill(),
-      stroke: seat.stroke(),
-      strokeWidth: seat.strokeWidth(),
-      draggable: seat.draggable()
-    });
-  }
-};
-
-const handleSeatDragEnd = (e: any) => {
-  if (!store.isEditMode) return;
-  const seat = e.target;
-  const newX = seat.x();
-  const newY = seat.y();
-  console.log('拖动结束:', seat.id(), newX, newY);
-  store.updateSeatPosition(seat.id(), newX, newY);
-};
-
-const handleMouseMove = (e: any) => {
-  // 可以在这里添加鼠标移动时的交互效果
-};
+const deleteSeat = (id: string) => {
+  store.deleteSeat(id)
+}
 
 const saveLayout = async () => {
   try {
-    await store.saveLayout();
-    ElMessage.success('布局保存成功');
-  } catch (error: any) {
-    ElMessage.error('保存失败：' + (error.message || '未知错误'));
+    await store.saveLayout()
+  } catch (error) {
+    console.error('保存布局失败:', error)
   }
-};
+}
 
+// 组件挂载时加载布局
 onMounted(async () => {
   try {
-    // 加载初始布局
     await store.loadLayout();
-    console.log('布局加载完成');
-  } catch (error: any) {
-    console.error('初始化失败:', error);
-    ElMessage.error('加载布局失败：' + (error.message || '未知错误'));
+  } catch (error) {
+    console.error('加载布局失败:', error);
   }
 });
 </script>
 
 <style scoped>
 .room-editor {
-  height: 100vh;
+  padding: 20px;
+}
+
+.controls {
+  margin-bottom: 20px;
+}
+
+.controls button {
+  margin-right: 10px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background-color: #f0f0f0;
+  cursor: pointer;
+}
+
+.controls button.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.canvas-container {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  border: 1px solid #ccc;
+  background-color: white;
+}
+
+.canvas-container.adding-seat {
+  background-color: rgba(76, 175, 80, 0.1);
+  cursor: crosshair;
+}
+
+.canvas-container.adding-employee {
+  background-color: rgba(33, 150, 243, 0.1);
+  cursor: crosshair;
+}
+
+.grid-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.seats-layer,
+.employees-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.seat {
+  position: absolute;
+  border: 2px solid #ccc;
   display: flex;
   flex-direction: column;
-}
-
-.el-header {
-  background-color: #fff;
-  border-bottom: 1px solid #dcdfe6;
-  padding: 20px;
-  display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-}
-
-.toolbar {
-  display: flex;
-  gap: 10px;
-}
-
-.save-button {
-  margin-left: 20px;
-}
-
-.el-main {
-  flex: 1;
-  padding: 20px;
-  background-color: #f5f7fa;
-}
-
-h1 {
-  margin: 0;
-  font-size: 24px;
-  color: #303133;
-}
-
-/* 添加编辑模式的视觉反馈 */
-:deep(.v-stage) {
-  cursor: default;
-}
-
-:deep(.v-stage.is-edit-mode) {
-  cursor: crosshair;
-  background-color: #f0f9ff;
-}
-
-:deep(.v-stage.is-adding-seat) {
-  cursor: pointer;
-  background-color: #f0fff0;
-}
-
-:deep(.v-rect) {
   cursor: move;
+}
+
+.seat.is-slot {
+  background-color: rgba(76, 175, 80, 0.2);
+  border-color: #4CAF50;
+}
+
+.seat.is-employee {
+  background-color: rgba(33, 150, 243, 0.2);
+  border-color: #2196F3;
+}
+
+.seat-label {
+  font-size: 14px;
+  text-align: center;
+  padding: 4px;
+}
+
+.seat-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px;
+}
+
+.delete-btn {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: #ff4444;
+  color: white;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+  z-index: 10;
+}
+
+.delete-btn:hover {
+  background-color: #cc0000;
+}
+
+.message {
+  margin: 10px 0;
+  padding: 10px;
+  background-color: #ffebee;
+  color: #c62828;
+  border-radius: 4px;
+  text-align: center;
 }
 </style> 
